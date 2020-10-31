@@ -1,0 +1,146 @@
+RAPPORT DM DONNEES WEB
+
+INTRODUCTION
+
+I) Calcul des TF
+
+Nous avons calculé les TF grace aux lignes suivantes :
+
+for i in $(seq 3655); do cat $i | 
+tr [:upper:] [:lower:]| 
+sed 's/[^a-z]/ /g' | 
+sed 's/ /\n/g' |
+awk 'NF != 0 {print}'|
+sort | 
+awk '{if (mot == $1) tf ++; else {print mot, tf; mot = $1; tf = 1}} END {print mot, tf}' | 
+sed 1d >$i.tf;done
+
+Ces lignes permettent de formatter les mots présents dans les fichiers afin qu'ils soit tous, par ordre alphabétique, en miniscule, sans les virgules etc...
+Mais aussi de creer les fichiers .tf ayant par ligne, le mot et son occurence dans le fichier.
+Tout cela 3655 fois, pour calculer les TF de chaque fichier.
+
+Les fichiers TF contiennent le nombre d'occurences de chaque mots dans le document.
+Nous avons donc maintenant nos fichiers contenant les mails, et pour chacun, un fichier associé avec l'extension .tf.
+<screenTF1>
+
+II) Calcul du DF
+
+Nous avons calculé le DF grace aux lignes suivantes :
+
+for i in $(seq 3655); do cat $i |
+tr [:upper:] [:lower:] | 
+sed 's/[^a-z]/ /g' | 
+sed 's/ /\n/g' |awk 'NF != 0 {print}'|sort -u; done | 
+sort | 
+awk '{if (mot == $1) tf ++; else {print mot, tf; mot = $1; tf = 1}} END {print mot, tf}' | 
+sed 1d > ../df.txt
+
+Ces lignes permettent de formatter les mots présents dans les fichiers comme pour les TF, mais cette fois nous avons un seul nouveau fichier nommé df.txt.
+
+Le fichier DF contient le nombre de documents dans lequel chaque mot apparait.
+En plus des fichiers, des fichiers .tf, nous avons maintenant aussi un fichier df.txt.
+<screen DF1>
+
+Nous avons donc maintenant tout ce qui est necessaire pour pouvoir calculer le TF-iDF.
+
+III) Chronométrage des taches
+
+Nous nous sommes ensuite interessé a la complexité en temps des lignes permettant de faire les calculs des tf et du df.
+Notre corpus contient 3655 fichiers, nous avons donc commmencé par regarder le temps d'execution des lignes pour 500 fichiers, puis 1000, puis 1500.
+A chaque fois que nous doublions le nombre de fichiers, le temps doublait, ce qui signifie que la complexité est linéaire.
+Pour nous permettre de recuperer ces informations nous avons utilisé la commande "time" avec le parametre "-p" pour formatter la sortie.
+Après avoir recuperer les temps d'execution suivant le nombre de fichier, nous avons tracé les courbes "Temps d'execution par rapport au nombre de fichier".
+Pour cela, nous avons utilisé "gnuplot" directement dans le terminal, nos temps étaient inscrit dans le fichier "temps.txt".
+Le parametre "-o" permet a "time" d'inscrire ses resultats dans un fichier spécifié, et le parametre "-a" permet de ne pas ecraser le fichier, mais d'ajouter chaque temps a la suite.
+Nous avons tracé trois courbe avec gnuplot, une courbe linéaire, une exponentielle, et notre courbe étudiée.
+Comme prévu, notre courbe ressemblait fortement a une droite.
+Nous avons ensuite exporté, grave a gnuplot, ces courbes. Nous l'avons exporté en .png car c'est l'extension adéquate pour du graphisme vectoriel. 
+En effet les .jpeg sont utilisé pour de la photographie.
+Pour finir, nous avons utilisé la commande "eog" afin de visualiser ces exportations pour vérifier.
+
+<screen gnuplot>
+
+IV) Calcul du TF-iDF
+
+Le TF-iDF est calculé a partir des .tf, du .df, et du nombre total de fichiers constituant le corpus de recherche.
+La formule est la suivante : <mettre en format latex equations TFiDF(word,doc) = TF(word,doc)*log(nDocuments/DF(word))>
+On peut en déduire que le TF-iDF est toujours positif, n'a pas de maximum, permet de comparer des documents ou des mots...
+Un mot présent dans tous les documents aura un iDF de 0, un mot très pertinent aura un iDF élevé.
+Pour calculer le TF-iDF en ligne de commande, nous avons utilisé "awk".
+Cela nous a permit de nous rememorer les mots clefs de awk, tel que ARGV ( liste des arguments ) et ARGC ( le nombre d'arguments )...
+
+Le fichier awk nous ayant permit de calculer le TF-iDF est le suivant :
+<introduire le script>
+BEGIN{
+    while((getline<dfFile)>0)
+        df[$1] = $2
+}
+{
+    printn $1, $2 * log(3655/df[$1])
+}
+
+Pour tester notre script awk, nous avons executer la commande suivante : "awk -F tfidf.awk content/1.tf df.txt | less".
+
+IV) Réalisation de l'index, son interrogation et le calcul de la pertinence de chaque page qui matche la requête.
+
+1)---------------------------------------------------------
+a)for i in $(seq 3655); do cat $i.tf | sed "s/ .*/ $i/"; done |
+b)    sort -k1,1 -k2,2n |
+c)    awk '{if ($1 != last){if (last!="")print last, tab[last]; last = $1; tab[last] = $2} else tab[last] = tab[last] " " $2}END{print last, tab[last]}' > index
+
+a) Pour les 3655 fichiers tf, remplace le nombre d'occurence pour chaque mots par le numéro du mail dans lequel le mot est apparu
+b) Trie les mots alphabetiquement et les numero des fichiers par ordre croissant
+c) Execute un script permettant, pour chaque ligne, d'afficher une seule fois un mot, suivis des numéro de fichiers dans lesquels il se trouve
+
+<screen index1>
+
+2)---------------------------------------------------------
+a)for i in $(cat query); do
+b)     grep "^$i " index |
+c)	      sed 's/[^ ]* //; s/ /\n/g' | sort > $i.index;
+  done;
+d)cp $(head -1 query).index answer;
+e)for i in $(sed 1d query); do comm -1 -2 answer $i.index > tmp; mv tmp answer; done;
+
+a) Pour chaque mot dans le fichier query
+b) recupere les lignes commencant par un de ces mots dans le fichier index
+c) formate les lignes ( supprime les espaces en debut de ligne ,change les espaces en retour chariot ), les trie, puis les mets dans un fichier de nom "<motRecherche>.index"
+d) copie le contenu du fichier "<premierMotDeLaRechercheDansQuery>.index" dans le fichier "answer" (????)
+e) Pour chacun des mots de la query ( sauf le premier ), compare ligne par ligne leurs fichiers .index et met le resultat dans "tmp", le fichier "tmp" devient "answer"
+
+<screen machineindex>
+<screen answer>
+
+3)---------------------------------------------------------
+a)for i in $(cat query); do grep "^$i " ../df.txt; done | awk '{print $1, log(3655/$2)}' | awk '{print $2}' > query.tfidf
+
+a) Pour chacun des mots de la requete, recupere les lignes contenant ces mots dans le fichier "df.txt", puis execute un script awk permettant de calculer l'iDF, puis un script qui met l'iDF dans le fichier "query.tfidf"
+
+<screen querytfidf>
+
+4)---------------------------------------------------------
+a)for i in $(sort answer); do
+b)    echo -n "$i ";
+
+c)    for j in $(cat query); do
+d)  	   grep "^$j " $i.tfidf | awk '{print $2}';
+e)    done > $i.pert;
+
+f)    paste -d" " query.tfidf $i.pert | awk '{sum+=$1*$2;norm1+=$1*$1;norm2+=$2*$2}END{print sum/sqrt(norm1)/sqrt(norm2)}';
+g)    rm -f $i.pert;
+  done
+
+a) Pour chacun des numéro de mail contenu dans le fichier "answer" trié,
+b) affiche ces numéros
+c) Pour chacun des mots de la recherche,
+d) recupere les lignes contenant ces mots dans les fichiers "<motsDeQuery>.tfidf", puis affiche le deuxieme mot ( c'est a dire les tfidf )
+e) met le resultat dans un fichier "<motsDeQuery>.pert"
+f) copie le contenu ( en utilisant l'espace comme separateur ) des fichiers .pert dans le fichier query.tfidf, tout en utilisant un script awk.
+   Le script awk utilise 2 variables :
+    - sum : la somme par ligne du produit de la premiere et deuxieme valeur.
+    - norm1 : la somme par ligne du carre de la premiere valeur.
+    - norm2 : la somme par ligne du carre de la deuxieme valeur.
+   Ensuite il affiche le resultat de sum divisé par la racine carre de norm1 puis divisé par la racine de norm2
+g) supprimer les fichiers "<motsDeQuery>.pert"
+
+CONCLUSION

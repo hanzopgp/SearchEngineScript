@@ -1,0 +1,48 @@
+A)
+1) for i in $(seq 3655); do cat $i.tf | sed "s/ .*/ $i/"; done |
+2) sort -k1,1 -k2,2n |
+3) awk '{if ($1 != last){if (last!="")print last, tab[last]; last = $1; tab[last] = $2} else tab[last] = tab[last] " " $2}END{print last, tab[last]}' > index
+
+1) Affiche les 3655 fichiers .tf   
+2) Trie
+3) Execute un script awk,
+
+B)---------------------------------------------
+1)for i in $(cat query); do
+2)    grep "^$i " index |---------------------------------------------
+3)	sed 's/[^ ]* //; s/ /\n/g' | sort > $i.index;
+  done;
+4)cp $(head -1 query).index answer;
+5)for i in $(sed 1d query); do comm -1 -2 answer $i.index > tmp; mv tmp answer; done;
+
+1)
+2)
+3)
+4)
+5)
+
+C)
+1) for i in $(cat query); do grep "^$i " df.txt; done | awk '{print $1, log(3655/$2)}' | awk '{print $2}' > query.tfidf
+
+1)
+
+D)
+1)for i in $(sort answer); do
+2)    echo -n "$i ";
+
+3)    for j in $(cat query); do
+4)	grep "^$j " $i.tfidf | awk '{print $2}';
+5)    done > $i.pert;
+
+6)    paste -d" " query.tfidf $i.pert | awk '{sum+=$1*$2;norm1+=$1*$1;norm2+=$2*$2}END{print sum/sqrt(norm1)/sqrt(norm2)}';
+7)    rm -f $i.pert;
+  done
+
+1)
+2)
+3)
+4)
+5)
+6)
+7)
+
