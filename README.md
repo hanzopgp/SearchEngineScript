@@ -2,7 +2,8 @@
 
 ## Presentation :
 
-Simple search engine using bash and awk using Linux.
+>Simple search engine in txt database, using tf-idf.
+>This was done using bash and awk on Linux.
 
 ## Usefull link :
 
